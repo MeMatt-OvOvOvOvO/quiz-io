@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz – Inżynieria Oprogramowania</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; padding: 24px 16px; gap: 16px; align-items: flex-start; }
+
+  /* ── Main quiz column ── */
+  #quiz-wrap { flex: 1; max-width: 720px; min-width: 0; }
+
+  .header { background: #1e3a5f; color: #fff; border-radius: 14px 14px 0 0; padding: 20px 24px 16px; }
+  .header h1 { font-size: 1.2rem; font-weight: 700; }
+  .header p  { font-size: 0.82rem; opacity: .7; margin-top: 3px; }
+
+  .progress-bar-wrap { background: #e2e8f0; height: 5px; }
+  .progress-bar { height: 5px; background: #3b82f6; transition: width .3s; }
+
+  .card { background: #fff; border-radius: 0 0 14px 14px; padding: 24px 24px 20px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+  .q-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .q-num { font-size: 0.76rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+  .q-tag { font-size: 0.7rem; background: #eff6ff; color: #2563eb; border-radius: 20px; padding: 2px 10px; font-weight: 600; }
+
+  .q-text { font-size: 1rem; font-weight: 600; color: #1e293b; line-height: 1.55; margin-bottom: 18px; }
+
+  .options { display: flex; flex-direction: column; gap: 9px; }
+  .option { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: all .15s; user-select: none; }
+  .option:hover:not(.locked) { border-color: #93c5fd; background: #f8faff; }
+  .option.locked { cursor: default; }
+  .option.selected  { border-color: #3b82f6; background: #eff6ff; }
+  .option.correct   { border-color: #22c55e; background: #f0fdf4 !important; }
+  .option.wrong     { border-color: #ef4444; background: #fef2f2 !important; }
+  .option.reveal-correct { border-color: #22c55e; background: #f0fdf4 !important; }
+  .option-letter { width: 26px; height: 26px; min-width: 26px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; color: #64748b; transition: all .15s; }
+  .option.selected .option-letter        { background: #3b82f6; color: #fff; }
+  .option.correct .option-letter         { background: #22c55e; color: #fff; }
+  .option.wrong .option-letter           { background: #ef4444; color: #fff; }
+  .option.reveal-correct .option-letter  { background: #22c55e; color: #fff; }
+  .option-text { font-size: 0.93rem; color: #334155; line-height: 1.45; padding-top: 1px; }
+
+  .feedback { margin-top: 16px; padding: 11px 14px; border-radius: 9px; font-size: 0.9rem; font-weight: 500; display: none; }
+  .feedback.correct { background: #f0fdf4; color: #16a34a; border: 1.5px solid #86efac; display: block; }
+  .feedback.wrong   { background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5; display: block; }
+
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; gap: 10px; }
+  .actions-left  { display: flex; gap: 8px; align-items: center; }
+  .actions-right { display: flex; gap: 8px; align-items: center; }
+  .btn { padding: 9px 18px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; transition: all .15s; white-space: nowrap; }
+  .btn-primary  { background: #2563eb; color: #fff; }
+  .btn-primary:hover  { background: #1d4ed8; }
+  .btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .btn-outline  { background: transparent; color: #64748b; border: 2px solid #e2e8f0; }
+  .btn-outline:hover  { border-color: #94a3b8; color: #334155; }
+  .btn-outline:disabled { opacity: .4; cursor: not-allowed; }
+  .score-text { font-size: 0.84rem; color: #64748b; }
+
+  /* ── Sidebar ── */
+  #sidebar { width: 158px; flex-shrink: 0; position: sticky; top: 24px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: 0; }
+  .sb-header { background: #1e3a5f; color: #fff; border-radius: 10px 10px 0 0; padding: 10px 12px 8px; font-size: 0.75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .sb-legend { background: #fff; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 5px; font-size: 0.68rem; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+  .sb-legend span { display: flex; align-items: center; gap: 3px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .sb-grid { background: #fff; border-radius: 0 0 10px 10px; padding: 8px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; overflow-y: auto; flex: 1; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+  .sb-tile { width: 100%; aspect-ratio: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all .12s; background: #e2e8f0; color: #64748b; }
+  .sb-tile:hover    { filter: brightness(.92); }
+  .sb-tile.t-current { border-color: #2563eb; background: #dbeafe; color: #1d4ed8; }
+  .sb-tile.t-correct { background: #22c55e; color: #fff; border-color: #22c55e; }
+  .sb-tile.t-wrong   { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+  /* ── Results ── */
+  .results { background: #fff; border-radius: 14px; padding: 36px 24px; box-shadow: 0 4px 20px rgba(0,0,0,.08); text-align: center; }
+  .results h2 { font-size: 1.5rem; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+  .score-circle { width: 120px; height: 120px; border-radius: 50%; margin: 20px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; color: #fff; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .result-box { background: #f8fafc; border-radius: 10px; padding: 14px 10px; }
+  .result-box .val { font-size: 1.6rem; font-weight: 800; }
+  .result-box .lbl { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+  .green { color: #22c55e; } .red { color: #ef4444; } .blue { color: #3b82f6; }
+  .btn-restart { margin-top: 4px; padding: 12px 32px; font-size: 0.95rem; }
+
+  /* ── Review ── */
+  .review-list { display: flex; flex-direction: column; gap: 14px; }
+  .review-item { background: #fff; border-radius: 11px; padding: 15px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.06); border-left: 4px solid transparent; }
+  .review-item.r-correct { border-left-color: #22c55e; }
+  .review-item.r-wrong   { border-left-color: #ef4444; }
+  .review-q   { font-size: 0.9rem; font-weight: 600; color: #1e293b; margin-bottom: 7px; }
+  .review-ans { font-size: 0.84rem; color: #64748b; }
+  .review-ans span { font-weight: 700; }
+  .review-ans .ok  { color: #16a34a; }
+  .review-ans .bad { color: #dc2626; }
+
+  @media (max-width: 640px) {
+    body { flex-direction: column; }
+    #sidebar { width: 100%; position: static; max-height: none; }
+    .sb-grid { grid-template-columns: repeat(8, 1fr); max-height: 140px; }
+  }
+</style>
+</head>
+<body>
+<div id="quiz-wrap"></div>
+<div id="sidebar" style="display:none">
+  <div class="sb-header">Pytania</div>
+  <div class="sb-legend">
+    <span><span class="legend-dot" style="background:#e2e8f0"></span>brak</span>
+    <span><span class="legend-dot" style="background:#22c55e"></span>ok</span>
+    <span><span class="legend-dot" style="background:#ef4444"></span>błąd</span>
+    <span><span class="legend-dot" style="background:#dbeafe;border:2px solid #2563eb"></span>tu</span>
+  </div>
+  <div class="sb-grid" id="sb-grid"></div>
+</div>
+
+<script>
+const questions = [
+  {q:"Głównym zadaniem fazy wymagań jest:", opts:["Stwierdzenie jak duży będzie system","Określenie co? i jak? ma system robić","Jasne określenie co? system ma robić","Jasne określenie jak? system ma realizować zadania"], ans:2},
+  {q:"Dokument wymagań dotyczy:", opts:["dokumentacji wymagań stawianych przed tworzonym oprogramowaniem","dokumentacji planu testów kolejnych etapów życia oprogramowania","dokumentacji funkcji realizujących kolejne wymagania systemu","dokumentacji etapów realizacji oprogramowania"], ans:0},
+  {q:"Dokument wymagań zawiera:", opts:["specyfikację wymagań w odniesieniu do tworzonego systemu","listę funkcji realizujących określone wymagania","zestawy testów realizowanych na etapie wymagań","kody procedur realizujących poszczególne wymagania"], ans:0},
+  {q:"Czy wymagania dla systemu powinny być poddane testowaniu w kaskadowym modelu cyklu życia oprogramowania?", opts:["tak","nie","to zależy od dziedziny problemu","czasami"], ans:1},
+  {q:"Czy wymagania dla systemu powinny być poddane analizie?", opts:["tak","nie","to zależy od dziedziny problemu","czasami"], ans:0},
+  {q:"Wymagania z poziomu użytkownika mają postać:", opts:["informacji o sposobie przetwarzania danych","układu wejść i wyjść","opisu kolejnych testów","opisu kolejnych procedur"], ans:1},
+  {q:"Opis wymagań powinien przede wszystkim:", opts:["opisywać działanie systemu","opisywać strukturę systemu","dokumentować model systemu","opisywać zewnętrzne zachowanie systemu"], ans:3},
+  {q:"Wymagania funkcjonalne opisują:", opts:["etapy działania systemu","diagramy przejść","czynności i operacje wykonywane przez system","zastosowane metody obiektowe"], ans:2},
+  {q:"Wymagania niefunkcjonalne opisują:", opts:["identyfikację metod i komunikatów","metody związane z podstawowymi klasami systemu","funkcje nie związane z algorytmem podstawowym systemu","ograniczenia przy których system będzie realizował swoje funkcje"], ans:3},
+  {q:"Specyfikacji wymagań służy:", opts:["formularz opisu wymagań","lista metod","lista klas","formularz testów"], ans:0},
+  {q:"Dla poprawnej realizacji wymagań funkcjonalnych konieczne jest wprowadzenie:", opts:["macierzy śladu","hierarchii wymagań","macierzy odwrotnej śladu","hierarchii testów"], ans:1},
+  {q:"Wymagana wielkość bufora PAO oraz strony pamięci RAM przy definiowaniu sposobu działania systemu należą do wymagań:", opts:["systemowych","niefunkcjonalnych","funkcjonalnych","wewnętrznych"], ans:1},
+  {q:"Celem fazy analizy jest odpowiedź na pytanie:", opts:["jak system ma działać","co system ma robić","kiedy system ma działać","jak system ma zostać zaimplementowany"], ans:0},
+  {q:"Wynikiem fazy analizy jest:", opts:["model fizyczny systemu, opisujący jego funkcje","model logiczny systemu wskazujący na jego ograniczenia","model fizyczny systemu wskazujący na jego ograniczenia","model logiczny systemu opisujący sposób realizacji postawionych wymagań"], ans:3},
+  {q:"Celem fazy projektowania jest odpowiedź na pytanie:", opts:["jak system ma zostać udokumentowany?","jak system ma zostać zapisany?","jak system ma zostać zaimplementowany?","jak system ma zostać przetestowany?"], ans:2},
+  {q:"Model analityczny budowanego oprogramowania powinien być:", opts:["szczegółowo przetestowany","gotowy do numerycznej implementacji","uproszczonym opisem systemu, wskazującym istotne jego cechy","zgodny z oczekiwaniami użytkownika"], ans:2},
+  {q:"Transformacja od środowiska do kodu obejmuje kolejne modele:", opts:["środowisko, model numeryczny, kod","środowisko, model środowiska, model kodu, kod (model cyfrowy)","środowisko, model matematyczny, model numeryczny, kod","środowisko, opis numeryczny, model kodu, kod"], ans:1},
+  {q:"Metody strukturalne tworzenia oprogramowania wyróżniają w systemie:", opts:["bloki funkcji i bloki operacji","struktury danych związane jedynie z funkcjami jednoparametrowymi","składowe pasywne i składowe aktywne","obiekty i działające na nie metody"], ans:2},
+  {q:"Metody obiektowe tworzenia oprogramowania bazują na wprowadzeniu:", opts:["składowych pasywnych (danych) i aktywnych (funkcji)","składowych prostych i złożonych o różnej długości","składowych lokalnych i globalnych","składowych łączących dane z metodami"], ans:3},
+  {q:"Obiekt na etapie analizy jest to:", opts:["konstrukcja języka programowania, łącząca dane i metody","składowa dziedziny problemu posiadająca tożsamość, stan i zachowanie","składowa dziedziny problemu posiadająca nazwę, pola i atrybuty","konstrukcja języka formalnego służącego notacji strukturalnej"], ans:1},
+  {q:"Klasa na etapie analizy oznacza:", opts:["konstrukcję modelu obiektowego","składową dziedziny problemu charakteryzowaną przez stan","wzorzec dla metod stosowanych w systemie","wzorzec grupy obiektów o podobnych stanach i zachowaniu"], ans:3},
+  {q:"Obiekt jest:", opts:["elementem klasy definiowanym przez tożsamość, stan i zachowanie","elementem klasy definiowanym przez tożsamość, metody i atrybuty","elementem klasy definiowanym przez atrybuty, stan i metody","elementem klasy definiowanym przez atrybuty, stan i zachowanie"], ans:0},
+  {q:"Dla klasy 'Samochod' zdefiniowano metodę 'Sprzedaj_na_raty'. Zdefiniowano klasę 'samochod_osobowy' która jest podklasą klasy 'Samochod'. Które z poniższych sformułowań jest prawdziwe?", opts:["samochod_osobowy dziedziczy tylko atrybuty klasy Samochod","samochod_osobowy dziedziczy tylko metody klasy Samochod","samochod_osobowy nie ma dostępnych żadnych właściwości","samochod_osobowy dziedziczy wszystkie właściwości klasy Samochod"], ans:3},
+  {q:"Skrót UML oznacza:", opts:["User Modified Language","Updated Modified Language","Unified Modeling Language","User Modeling Language"], ans:2},
+  {q:"UML jest graficznym językiem służącym do:", opts:["specyfikowania, kodowania, dokumentowania systemów informatycznych","kodowania, testowania, dokumentowania systemów informatycznych","testowania, dokumentowania, implementacji systemów informatycznych","obrazowania, specyfikowania, dokumentowania systemów informatycznych"], ans:3},
+  {q:"Który z poniższych języków nie pozwala na tworzenie programów w pełni obiektowych?", opts:["C","C++","Python","C#"], ans:0},
+  {q:"Atrybuty klasy to:", opts:["opis metod klasy","nazwane właściwości klasy","nazwane metody klasy","opisy nazw klasy"], ans:1},
+  {q:"Metody klasy to:", opts:["operacje zastrzeżone w klasie","działania realizowane automatycznie na obiektach danej klasy","operacje których realizacji można wymagać od obiektów danej klasy","działania realizowane przez atrybuty danej klasy"], ans:2},
+  {q:"Dziedziczenie w modelu obiektowym polega na:", opts:["tworzeniu nowych obiektów o własnościach przodka","tworzeniu nowych metod na podstawie wcześniej zdefiniowanych","tworzeniu nowych konstruktorów na podstawie wcześniej zdefiniowanych","tworzeniu nowych komunikatów na podstawie wcześniej zdefiniowanych"], ans:0},
+  {q:"Artefakty to:", opts:["struktury otrzymywane w procesie analizy oprogramowania","obiekty abstrakcyjne powstające automatycznie","fakty artystyczne wynikające z procesu tworzenia oprogramowania","elementy informacyjne wytworzone w procesie tworzenia oprogramowania"], ans:3},
+  {q:"Programowanie strukturalne:", opts:["ułatwia hermetyzację","ułatwia programowanie oparte na zdarzeniach","pozwala na tworzenie konstrukcji proceduralnych","nie jest dobrym rozwiązaniem dla programów obliczeniowych"], ans:2},
+  {q:"Przypadki użycia w UML służą do określenia:", opts:["użytkowników systemu","parametrów systemu odpowiedzialnych za poprawne działanie systemu","jedynie odpowiedzi systemu na sytuacje awaryjne","ciągów akcji służących realizacji funkcji systemu"], ans:3},
+  {q:"Przypadki użycia są zbiorem jednostek opisu dynamiki systemu. Składają się z zestawów scenariuszy które pokazują:", opts:["strukturę pakietów i komponentów systemu","strukturę klas i obiektów występujących w modelu","sekwencje interakcji prowadzących do określonego celu","sekwencje stanów obiektów w trakcie transformacji"], ans:2},
+  {q:"Zbadaj poniższy tekst: Jurek ma teraz 16 lat, to jest dwa razy tyle, ile Wojtek miał wtedy, kiedy Jurek miał tyle, ile Wojtek ma teraz. Wymaganiem dla systemu będzie specyfikacja:", opts:["Wojtek jest młodszy od Jurka o 6 lat","Wojtek jest młodszy od Jurka o 8 lat","Wojtek jest młodszy od Jurka o 4 lata","Wojtek jest starszy od Jurka o 8 lat"], ans:2},
+  {q:"Zbadaj poniższy tekst: Ojciec ma 42 lata a syn 12, za ile lat ojciec będzie dwa razy starszy od syna. Wymaganiem dla systemu analizującego wiek ojca i syna będzie specyfikacja:", opts:["Ojciec będzie dwa razy starszy od syna za 28 lat","Ojciec jest młodszy od syna o 30 lat","Ojciec będzie dwa razy starszy od syna za 18 lat","Ojciec jest starszy od syna o 28 lat"], ans:2},
+  {q:"Zbadaj poniższy cytat z Tolkiena: 'Nie każdy kto błądzi, jest stracony'. Czy to znaczy że:", opts:["każdy kto błądzi nie jest stracony","nie ma straconych błądzących","nie ma błądzących niestraconych","błądzący mogą być straceni"], ans:3},
+  {q:"Zbadaj poniższy tekst: Do ponumerowania stron gazet stosuje się co najwyżej 101 cyfr. Ograniczeniem wymagania dla systemu numerującego strony będzie:", opts:["numeruj nie więcej niż 45 stron","numeruj nie więcej niż 55 stron","numeruj nie więcej niż 65 stron","numeruj nie więcej niż 101 stron"], ans:1},
+  {q:"Faza analizy dotyczy następujących etapów cyklu życia oprogramowania:", opts:["określenia wymagań, projektowania i kodowania","specyfikowania, projektowania i kodowania","projektowania, kodowania i dokumentacji","określenia wymagań, specyfikowania i projektowania"], ans:3},
+  {q:"Dobór algorytmów i struktur danych odbywa się w fazie:", opts:["specyfikacji wymagań","implementacji","projektowania","kodowania"], ans:2},
+  {q:"Tzw. dobre wymagania dla systemu powinny być:", opts:["zwięzłe, niespójne, zrozumiałe dla użytkowników i precyzyjne","spójne, niekompletne, łatwe do modyfikacji, wykonalne","jednoznaczne, spójne, niekompletne, precyzyjne","zwięzłe, spójne, wykonalne, łatwe do modyfikacji"], ans:3},
+  {q:"System będzie przyjmował dopuszczalne ID pracownika z przedziału 1-100. Jakie cechy ma takie wymaganie? Jest ono:", opts:["zrozumiałe, spójne, niekompletne, wykonalne, jasne","zrozumiałe, niespójne, kompletne, wykonalne, niejasne","niezrozumiałe, spójne, kompletne, niewykonalne, jasne","niezrozumiałe, niespójne, niekompletne, niewykonalne, niejasne"], ans:0},
+  {q:"Klasyfikatory w UML-u obejmują:", opts:["składowe klasyfikacji diagramów","elementy modelu opisujące graficznie jego zachowanie lub strukturę","elementy dziedziny problemu nie związane z jego strukturą","konstrukcja języka formalnego służącego notacji strukturalnej"], ans:1},
+  {q:"Do właściwości klasy zaliczamy:", opts:["klasyfikatory i instancje","artefakty i metody","atrybuty i operacje","obiekty i pakiety"], ans:2},
+  {q:"Klasa jest charakteryzowana przez:", opts:["stan, zawartość i zaawansowanie","stan, budowę i przeznaczenie","nazwę, stan i historię","nazwę, stan i metody"], ans:3},
+  {q:"Dwie klasy są w związku generalizacji-specjalizacji jeżeli jedna z nich:", opts:["zwana specjalizacją jest uogólnieniem drugiej, generalizacji","zwana generalizacją jest uogólnieniem drugiej, specjalizacji","zwana specjalizacją jest uzupełnieniem drugiej, generalizacji","zwana generalizacją jest uzupełnieniem drugiej, specjalizacji"], ans:1},
+  {q:"Czy dla danej specjalizacji może istnieć wiele generalizacji?", opts:["nie, może istnieć tylko jedna","tak, pod warunkiem wprowadzenia związku kwalifikowanego","tak","nie, chyba że zostanie wprowadzony związek kwalifikowany"], ans:2},
+  {q:"W związku kwalifikowanym klas: student – gr_studencka, gdzie kwalifikatorem jest kierunek_stud i rok_akad:", opts:["klasa student jest generalizacją, klasa gr_studencka jest specjalizacją","klasa student jest generalizacją, klasa kierunek_stud jest specjalizacją","klasa student jest specjalizacją, klasa gr_studencka jest generalizacją","klasa gr_studencka jest generalizacją, klasa rok_akad jest specjalizacją"], ans:2},
+  {q:"Dynamiczne zachowanie się systemu jest modelowane poprzez:", opts:["ograniczenia, algorytm, przejście stanu, akcje, operacje","algorytm, struktury danych, operacje, zdarzenie","strukturę danych, stan, akcje, operacje","zdarzenie, stan, przejście stanu, akcje, operacje"], ans:3},
+  {q:"Diagramy przejść stanów opisują:", opts:["stan systemu pomiędzy kolejnymi zdarzeniami","akcje i operacje systemu przeprowadzające system pomiędzy stanami","sposób testowania systemu","zasady implementacji systemu"], ans:1},
+  {q:"Asocjacja jest relacją:", opts:["łączącą dwie lub więcej klas","generalizacji – specjalizacji","zawierania","typu include"], ans:0},
+  {q:"Weryfikacja klas i obiektów pozwala na usunięcie elementów zbędnych. Usuwamy klasy dla których:", opts:["istnieje wiele pól i metod","istnieje związek z innymi klasami","brak pól i metod lub jeden obiekt w klasie lub brak związku z innymi klasami","dla wielu pól istnieje jedynie jedna metoda"], ans:2},
+  {q:"Identyfikacja związków klas i obiektów ma na celu:", opts:["wyszczególnienie podstawowych metod w klasach i obiektach","uogólnienie zależności pomiędzy poszczególnymi wymaganiami systemu","uogólnienie metod danej klasy","uogólnienie wielu związków zachodzących pomiędzy obiektami danej klasy"], ans:3},
+  {q:"Związek klas generalizacji – specjalizacji wskazuje na:", opts:["dziedziczenie pól i metod","polimorfizm tych klas","zdarzenie powodujące przejście stanów w poszczególnych klasach","operacje wywołane przez metody klasy generalizacji"], ans:0},
+  {q:"Identyfikacja i definiowanie pól klasy polega między innymi na wprowadzeniu:", opts:["związków generalizacji – specjalizacji pomiędzy obiektami danej klasy","wszystkich pól (atrybutów) opisujących możliwe stany obiektów danej klasy","relacji agregacji wśród obiektów danej klasy","wszystkich obiektów definiujących daną klasę"], ans:1},
+  {q:"Do metod realizowanych w modelu obiektowym zaliczamy między innymi:", opts:["Konstruktory, destruktory, metody pobierania wartości pól, przerwania","Metody edycji pól, konstruktory, procesy, destruktory","Metody ustawiania związków pomiędzy obiektami, destruktory, konstruktory","Konstruktory, metody pobierania/ustawiania wartości pól, obsługa zlecenia"], ans:2},
+  {q:"Agregacja w UML-u jest:", opts:["związkiem pomiędzy pakietami","relacją mnogościową jeden do jednego","związkiem generalizacji – specjalizacji","rodzajem asocjacji wskazującej na zawieranie się klas"], ans:3},
+  {q:"Wymagania w języku naturalnym: System czekowy ma na celu obsługę kont czekowych. System ten musi mieć możliwość przetwarzania takich transakcji na koncie jak wpłata i wypłata dla wielu kont. Potencjalnymi klasami są:", opts:["system czekowy, konto czekowe, transakcja, wpłata, wypłata, czek","system czekowy, cel, transakcja, wpłata, wypłata, czek","system czekowy, konto czekowe, cele systemu, wpłata, wypłata, czek","system czekowy, konto czekowe, możliwości systemu, wpłata, wypłata, czek"], ans:0},
+  {q:"Główne pojęcia obiektowości to:", opts:["atrybuty, obiekty, pola, struktury","klasy, obiekty, dziedziczenie, polimorfizm","struktury, dane pasywne, dane aktywne, obiekty","klasy obiektów, struktury danych, metody, funkcje"], ans:1},
+  {q:"Obligatoryjność związków obiektów klas oznacza:", opts:["konieczność tworzenia uzupełnienia danego obiektu","konieczność utworzenia związku agregacji","konieczność utworzenia klasy obligatoryjnej","żadna z wyżej wymienionych"], ans:2},
+  {q:"Związek agregacji w grupie studenckiej polega na tym, że:", opts:["w skład grupy wchodzi wielu studentów i wiele studentek","skład grupy studenckiej jest zmienny","w skład grupy studenckiej wchodzi co najmniej 25 osób","całą grupę studencką stanowi ściśle określona grupa osób"], ans:3},
+  {q:"Korzystając z języka UML nie można:", opts:["stworzyć modelu systemu obiektowego","stworzyć modelu dowolnego bytu","stworzyć modelu procesu gospodarczego","stworzyć modelu przepływu danych"], ans:1},
+  {q:"DFD's (data flow diagrams) są podstawą:", opts:["modelowania proceduralnego","modelowania obiektowego","modelowania matematycznego","modelowania komputerowego"], ans:0},
+  {q:"Wyodrębnij cztery klasy z poniższego opisu: Klient korzysta z systemu, aby pobrać i sprawdzić stan swojego konta. Klient musi włożyć kartę do bankomatu, wprowadzić swój numer PIN. Drukując saldo klient oczekuje aktualnego stanu jego konta oraz historii transakcji.", opts:["Klient, konto, PIN, historia","Klient, konto, bankomat, system","System bankowy Sumes, konto nr 1010101010101, Jan Kowalski, bank PKO BP","Konto, system, transakcja, drukowanie"], ans:1},
+  {q:"Wyodrębnij pary klasa (K) i jej obiekt (O): Klient Jan Kowalski przychodzi do bankomatu nr 100 przy ul. Wrocławskiej by pobrać pieniądze. Podaj nr PIN oraz kwotę do wypłaty. Bankomat sprawdza poprawność danych i wypłaca pieniądze.", opts:["K-Klient O-Sprawdzenie danych, K-Bankomat O-wypłata pieniędzy","K-Operacja O-Kwota, K-System O-klient","K-Klient O-Jan Kowalski, K-bankomat O-nr100","K-Pieniądze O-euro, K-Dane O-PIN"], ans:2},
+  {q:"Modelowanie strukturalne i modelowanie proceduralne:", opts:["to jest to samo (synonimy)","różnią się podejściem do statyki systemu","różnią się podejściem do dynamiki systemu","uzupełniają się nawzajem"], ans:0},
+  {q:"W której fazie następuje wybór języka programowania wykorzystywanego w fazie kodowania?", opts:["w fazie strategicznej","w fazie określania wymagań","w fazie implementacji","w żadnej z powyższych (w fazie projektowania)"], ans:3},
+  {q:"Wyodrębnij obiekty (O) i właściwości (W): Klient Jan Kowalski przychodzi do bankomatu nr 100 przy ul. Wrocławskiej by pobrać pieniądze. Podaj nr PIN, oraz kwotę do wypłaty. Bankomat sprawdza poprawność danych i wypłaca pieniądze.", opts:["O-Jan Kowalski, W-PIN=1010, O-bankomat W-wypłać pieniądze","O-Jan Kowalski, W-wypłać pieniądze, O-bankomat W-adres=Wrocławska","O-Klient, W-Jan Kowalski, O-bankomat W-kolor","O-Jan Kowalski, W-PIN=1010, O-bankomat 100 W-adres=Wrocławska"], ans:3},
+  {q:"Symbol klasy zawiera:", opts:["nazwę związku","role","metody","czynność"], ans:2},
+  {q:"Który z poniższych języków został stworzony do modelowania systemów obiektowych?", opts:["XML","CSL","C#","UML"], ans:3},
+  {q:"Modele (diagramy) sekwencji w modelowaniu dynamiki systemu pokazują:", opts:["przebieg czynności w sekwencji zmiany stanu obiektów","następstwo czasowe w sekwencji komunikatów wymienianych między obiektami","zmianę stanu obiektów","następstwo stanów obiektów w sekwencji czasu"], ans:1},
+  {q:"Diagram opisu interakcji jest:", opts:["obrazowaniem kolejnych czynności w ciągu kolejnych interakcji","połączeniem diagramu interakcji i następstw","obrazowaniem stanów obiektów w sekwencji komunikatów","połączeniem diagramu pakietów i komponentów"], ans:0},
+  {q:"OMG jest organizacją o nazwie:", opts:["Object Marketing Group","Object Management Group","Object Marketing Goal","Object Management Global"], ans:1},
+  {q:"Tworzenie systemów sterowane modelami polega na transformacji kolejno pomiędzy modelami:", opts:["matematycznym, logicznym, środowiskiem","logicznym, fizycznym, rzeczywistym","środowiska, wymagań, systemu, podsystemu","środowiska, logicznym, matematycznym, numerycznym"], ans:2},
+  {q:"Modele w tworzeniu oprogramowania sterowanego modelami stanowią:", opts:["zestawy odpowiednich diagramów struktury i dynamiki systemu","opis rzeczywistego zachowania się systemu","opis logicznego zachowania się systemu","zestawy odpowiednich funkcjonalności systemu"], ans:0},
+  {q:"Architektura trójwarstwowa dla systemu obsługi zamówień najczęściej obejmuje podsystemy:", opts:["przyjmowania zamówień, wysyłania przesyłek, obsługi płatności","interfejs użytkownika, wysyłanie przesyłek, baza danych","przyjmowanie zamówień, obsługa płatności, interfejs użytkownika","interfejs użytkownika, reguły biznesowe, baza danych"], ans:3},
+  {q:"Wzorzec potoków i filtrów bazuje na:", opts:["swobodnym dostępie do dowolnych danych","niezależności podsystemów od strumienia danych","ścisłej zależności poszczególnych podsystemów","zależności poszczególnych podsystemów od strumienia danych na stosie"], ans:3},
+  {q:"Wzorzec architektury obiektowej bazuje na:", opts:["zależności poszczególnych podsystemów od strumienia danych na stosie","podsystemach zdefiniowanych wokół danych i związanych z nimi funkcji","ścisłej zależności poszczególnych podsystemów","swobodnym dostępie do dowolnych danych"], ans:1},
+  {q:"Która z poniższych cech NIE jest charakterystyczna dla programowania ekstremalnego?", opts:["programowanie w parach","testy jednostkowe","podejście kaskadowe","bezpośrednia współpraca z klientem"], ans:2},
+  {q:"Sformułowanie 'Make it work, make it right, make it fast' jest charakterystyczne dla:", opts:["modelu spiralnego wytwarzania oprogramowania","programowania ekstremalnego","modelowania aspektowego","modelu kaskadowego wytwarzania oprogramowania"], ans:1},
+  {q:"Celem fazy projektowania jest:", opts:["Transformacja pomiędzy modelami opisowymi i wymagań","Transformacja pomiędzy modelami opisowymi i specyfikacji","Transformacja pomiędzy modelami specyfikacji i numerycznym","Transformacja pomiędzy modelami numerycznym i cyfrowym"], ans:1},
+  {q:"Na diagramie UML związek agregacji jest oznaczony:", opts:["odcinkiem zakończonym wypełnionym rombem","odcinkiem zakończonym okręgiem","tylko odcinkiem","odcinkiem zakończonym pustym rombem"], ans:3},
+  {q:"Odcinkiem zakończonym pełnym rombem na diagramie UML oznacza się:", opts:["agregację","skojarzenie","dziedziczenie","kompozycję"], ans:3},
+  {q:"W opisie przypadku użycia wyzwalacz to:", opts:["zdarzenie powodujące rozpoczęcie przypadku użycia","warunki spełnione po pomyślnym wykonaniu głównego scenariusza przypadku użycia","zdarzenie powodujące zakończenie przypadku użycia","warunki które muszą być spełnione przed wykonaniem przypadku użycia"], ans:0},
+  {q:"Na diagramie klas UML oznaczenia widoczności pól +, #, – oznaczają kolejno:", opts:["private, protected, static","public, private, protected","public, abstract, protected","public, protected, private"], ans:3},
+  {q:"Metoda abstrakcyjna jest to:", opts:["metoda nieposiadająca implementacji","metoda dziedziczona z klasy abstrakcyjnej","metoda niewidoczna dla innych klas","nie istnieje takie pojęcie"], ans:0},
+  {q:"Pola oznaczone znaczkiem widoczności #:", opts:["są widoczne tylko w ramach jednej klasy","są widoczne tylko w ramach klasy i klas pochodnych","są widoczne wszędzie","są niewidoczne"], ans:1},
+  {q:"Na diagramie UML przypadków użycia są następujące elementy:", opts:["aktorzy, przypadki użycia, klasy","przypadki użycia, relacje, obiekty","aktorzy, przypadki użycia, relacje (scenariusze)","relacje, aktorzy, punkty zwrotne"], ans:2},
+  {q:"Klasę abstrakcyjną na diagramie UML oznacza się poprzez:", opts:["podkreślenie","czcionkę pochyłą","pogrubienie","dodanie słówka abstract"], ans:1},
+  {q:"Związek uogólnienia na diagramach UML oznacza się:", opts:["odcinkiem zakończonym trójkątem wskazującym klasę nadrzędną (dziedziczenie)","odcinkiem zakończonym trójkątem wskazującym klasę podrzędną","odcinkiem zakończonym rombem wskazującym klasę nadrzędną","odcinkiem zakończonym rombem wskazującym klasę podrzędną"], ans:0},
+  {q:"Przypadki użycia na diagramach UML oznacza się jako:", opts:["prostokąty","romby","owale","trapezy"], ans:2},
+  {q:"Aktorów na diagramie UML oznacza się jako:", opts:["wypełniony kwadrat","wypełniony okrąg","schematyczną postać","schematyczną głowę"], ans:2},
+  {q:"Gwarancje powodzenia przypadków użycia to:", opts:["warunki spełnione po pomyślnym wykonaniu scenariusza powodzenia","warunki spełnione po uruchomieniu przypadku użycia","warunki jakie zapewnia system by przypadek zakończył się powodzeniem","warunki początkowe, wymagane by przypadek mógł się rozpocząć"], ans:0},
+  {q:"Co to jest diagram DFD?", opts:["diagram struktury bazy danych","diagram opisujący strukturę klas","diagram przepływu danych","diagram przypadków użycia"], ans:2},
+  {q:"Klasa jest:", opts:["rzeczywistym typem danych","abstrakcyjnym typem danych","rozproszonym typem danych","skupionym typem danych"], ans:1},
+  {q:"Atestowanie jest procesem związanym z:", opts:["prowadzeniem procesu testowego przez klienta","prowadzeniem procesu testowego przez audytora projektu","prowadzeniem procesu testowego przez użytkowników systemu","prowadzeniem procesu testowego przez członków zespołu projektowego"], ans:0},
+  {q:"Model fizyczny systemu stanowiący o jego architekturze fizycznej jest reprezentowany przez:", opts:["model (diagram) wdrożenia","model (diagram) czynności","model (diagram) przypadków użycia","model (diagram) pakietów i komponentów"], ans:0},
+  {q:"Obiekt w modelowaniu obiektowym reprezentuje:", opts:["rzeczywisty typ danych","abstrakcyjny typ danych","hierarchiczny typ danych","uwarunkowany typ danych"], ans:1},
+  {q:"Model spiralny Boehma wymaga procesu ewolucyjnego w czterech aspektach:", opts:["planowania, analiza ryzyka, konstrukcja iteracji, atestowanie","planowanie, projektowanie, konstrukcja iteracji, testowanie","modelowanie, projektowanie, kodowanie, atestowanie","modelowanie, kodowanie, testowanie, utrzymanie"], ans:0},
+  {q:"Diagram 'use case' w UML służy do określenia:", opts:["użytkowników systemu","parametrów systemu odpowiedzialnych za poprawne działanie systemu","jedynie odpowiedzi na sytuacje awaryjne","scenariuszy definiujących funkcjonalność systemu"], ans:3},
+  {q:"Proces doboru technologii implementacji odbywa się na etapie:", opts:["budowania modelu specyfikacji","budowania modelu numerycznego","transformacji modelu numerycznego do modelu cyfrowego","transformacji systemu do użytkownika"], ans:2},
+  {q:"Głównym zadaniem fazy projektu jest:", opts:["Jasne określenie co? system ma robić","Stwierdzenie jak duży będzie system","Określenie co? i jak? ma system robić","Jasne określenie jak? system ma realizować zadania"], ans:3},
+  {q:"Testy funkcjonalne obejmują:", opts:["testowanie założeń systemu","testowanie jako białej skrzynki z pełną interpretacją kolejnych instrukcji","testowanie systemu jako czarnej skrzynki o określonej funkcjonalności","testowanie poszczególnych metod w klasach"], ans:2},
+  {q:"Podejście słownikowe do budowy modelu obiektowego wymaga:", opts:["identyfikacji dziedziny słownikowej problemu","zwyczajowego podejścia do modelu opisowego","modeli praktycznych zdekomponowanego modelu opisowego","identyfikacji rzeczowników jako obiektów"], ans:3},
+  {q:"Model COCOMO dotyczy:", opts:["szacowania czasu budowania systemu informatycznego","szacowania złożoności systemu informatycznego","szacowania bezpieczeństwa systemu informatycznego","szacowania kosztów wytworzenia systemu informatycznego"], ans:3},
+  {q:"Budowa systemów informatycznych modelujących wycinek rzeczywistości składa się z dwóch podstawowych procesów:", opts:["kodowania i testowania","analizy i syntezy","zbierania wymagań i wdrożenia","specyfikacji i modelowania"], ans:1},
+  {q:"Macierz śladu pozwala na:", opts:["jednoznaczne odwzorowanie kodu systemu na jego wymagania","sprawdzenie realizacji wszystkich wymagań przez podsystemy","właściwy dobór technologii implementacyjnej","odpowiednią specyfikację wymagań systemu"], ans:1},
+  {q:"Testy statyczne bazują na:", opts:["wynikach testowych uruchomień programu","analizie dokumentacji","analizie kodu","wynikach testów akceptacji-alfa"], ans:2},
+  {q:"Dekompozycja pozwala na jednoznaczną transformację pomiędzy:", opts:["modelem opisowym a modelem specyfikacji","modelem specyfikacji a modelem numerycznym","modelem numerycznym a modelem cyfrowym","modelowaną rzeczywistością a modelem cyfrowym"], ans:0},
+  {q:"Model logiczny systemu stanowiący o jego architekturze logicznej jest reprezentowany przez:", opts:["model (diagram) wdrożenia","model (diagram) czynności","model (diagram) przypadków użycia","model (diagram) pakietów i komponentów"], ans:3},
+  {q:"Proces SYNTEZY oprogramowania obejmuje fazy transformacji pomiędzy modelami:", opts:["numerycznym a cyfrowym wraz z testowaniem","specyfikacji a numerycznym wraz z testowaniem","cyfrowym a wdrożeniem wraz z testowaniem","opisowym a specyfikacji wraz z testowaniem"], ans:0},
+  {q:"Który z języków został zaprojektowany do graficznego modelowania systemów?", opts:["Fortran","CSL","C#","UML"], ans:3},
+  {q:"Model kaskadowy wytwarzania oprogramowania z rozbudowanym testowaniem wymaga:", opts:["wprowadzenia fazy testowania systemu po jego implementacji","wprowadzenia testowania elementów każdej fazy modelu kaskadowego","wprowadzenia testowania jedynie zbudowanych modeli numerycznych","wprowadzenia jedynie szczegółowej analizy opracowanego kodu systemu"], ans:1},
+  {q:"W inżynierii oprogramowania nakład pracy mierzymy:", opts:["czasem niezbędnym do zakończenia budowy systemu informatycznego","w osobogodzinach pracy","złożonością postawionego zadania","wielkością poniesionych kosztów"], ans:1},
+  {q:"Testy jednostkowe w fazie testowania modelu cyfrowego obejmują:", opts:["testowanie interfejsu systemu cyfrowego","testowanie metod dopuszczanych w klasach systemu","testowanie struktury klas i obiektów modelu cyfrowego","testowanie połączeń pomiędzy poszczególnymi modułami"], ans:1},
+  {q:"Hierarchia wymagań pozwala na zidentyfikowanie:", opts:["architektury logicznej systemu","architektury fizycznej systemu","struktury statycznej systemu","struktury dynamicznej systemu"], ans:0},
+  {q:"Czy wymagania dla systemu powinny być poddane syntezie w Fazie Kodowania?", opts:["Nie","Tak","To zależy od dziedziny problemu","Czasami"], ans:0},
+];
+
+const LETTERS = ['a','b','c','d'];
+const N = questions.length;
+
+// State
+let current  = 0;
+let shuffled = [];
+let answered = {};   // { pos: { chosen, correct_idx, isCorrect } }
+let mode     = 'quiz';
+
+// ── Helpers ────────────────────────────────────────────────
+function fisherYates(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function initShuffle() {
+  shuffled = fisherYates(questions.map((_, i) => i));
+  answered = {};
+  current  = 0;
+}
+
+function countScore() {
+  return Object.values(answered).filter(r => r.isCorrect).length;
+}
+
+// ── Sidebar ────────────────────────────────────────────────
+function renderSidebar() {
+  const sb = document.getElementById('sidebar');
+  const grid = document.getElementById('sb-grid');
+  if (mode !== 'quiz') { sb.style.display = 'none'; return; }
+  sb.style.display = 'flex';
+  grid.innerHTML = shuffled.map((_, pos) => {
+    let cls = 'sb-tile';
+    if (pos === current) cls += ' t-current';
+    else if (answered[pos] !== undefined)
+      cls += answered[pos].isCorrect ? ' t-correct' : ' t-wrong';
+    return `<div class="${cls}" onclick="goTo(${pos})" title="Pytanie ${pos+1}">${pos+1}</div>`;
+  }).join('');
+
+  // Scroll active tile into view
+  const active = grid.querySelector('.t-current');
+  if (active) active.scrollIntoView({block:'nearest'});
+}
+
+// ── Navigation ─────────────────────────────────────────────
+function goTo(pos) {
+  if (pos < 0 || pos >= N) return;
+  current = pos;
+  render();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ── Quiz render ────────────────────────────────────────────
+function render() {
+  const wrap = document.getElementById('quiz-wrap');
+  if (mode === 'results') { renderResults(wrap); renderSidebar(); return; }
+  if (mode === 'review')  { renderReview(wrap);  renderSidebar(); return; }
+  renderQuiz(wrap);
+  renderSidebar();
+}
+
+function renderQuiz(wrap) {
+  const pos  = current;
+  const q    = questions[shuffled[pos]];
+  const pct  = Math.round((Object.keys(answered).length / N) * 100);
+  const prev = answered[pos];          // already answered?
+  const isAnswered = prev !== undefined;
+
+  wrap.innerHTML = `
+    <div class="header">
+      <h1>Inżynieria Oprogramowania – Quiz</h1>
+      <p>${N} pytań z bazy egzaminacyjnej</p>
+    </div>
+    <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <div class="card">
+      <div class="q-meta">
+        <span class="q-num">Pytanie ${pos + 1} / ${N}</span>
+        <span class="q-tag">IO</span>
+      </div>
+      <div class="q-text">${pos + 1}. ${q.q}</div>
+      <div class="options" id="opts">
+        ${q.opts.map((o, i) => {
+          let cls = 'option' + (isAnswered ? ' locked' : '');
+          if (isAnswered) {
+            if (i === prev.chosen && prev.isCorrect)  cls += ' correct';
+            if (i === prev.chosen && !prev.isCorrect) cls += ' wrong';
+            if (i === prev.correct_idx && !prev.isCorrect) cls += ' reveal-correct';
+          }
+          return `<div class="${cls}" onclick="choose(${i})">
+            <div class="option-letter">${LETTERS[i]}</div>
+            <div class="option-text">${o}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="feedback ${isAnswered ? (prev.isCorrect ? 'correct' : 'wrong') : ''}" id="feedback">
+        ${isAnswered
+          ? (prev.isCorrect
+              ? '✓ Poprawna odpowiedź!'
+              : `✗ Błąd. Poprawna odpowiedź: ${LETTERS[prev.correct_idx].toUpperCase()}) ${q.opts[prev.correct_idx]}`)
+          : ''}
+      </div>
+      <div class="actions">
+        <div class="actions-left">
+          <button class="btn btn-outline" onclick="goTo(${pos - 1})" ${pos === 0 ? 'disabled' : ''}>← Wstecz</button>
+        </div>
+        <div class="score-text">Wynik: <b>${countScore()}</b> / ${Object.keys(answered).length} pyt.</div>
+        <div class="actions-right">
+          ${isAnswered && pos < N - 1
+            ? `<button class="btn btn-primary" onclick="goTo(${pos + 1})">Następne →</button>`
+            : isAnswered && pos === N - 1
+              ? `<button class="btn btn-primary" onclick="finishQuiz()">Zobacz wynik</button>`
+              : `<button class="btn btn-primary" disabled>Wybierz odpowiedź</button>`
+          }
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Answer ─────────────────────────────────────────────────
+function choose(i) {
+  if (answered[current] !== undefined) return;
+  const q        = questions[shuffled[current]];
+  const correct  = q.ans;
+  const isCorrect = i === correct;
+  answered[current] = { chosen: i, correct_idx: correct, isCorrect };
+  render();
+}
+
+// ── Finish ─────────────────────────────────────────────────
+function finishQuiz() {
+  mode = 'results';
+  render();
+}
+
+// ── Results ────────────────────────────────────────────────
+function renderResults(wrap) {
+  const score = countScore();
+  const total = N;
+  const pct   = Math.round((score / total) * 100);
+  let grade, color;
+  if (pct >= 95) { grade = '5.0'; color = '#22c55e'; }
+  else if (pct >= 90) { grade = '4.5'; color = '#3b82f6'; }
+  else if (pct >= 85) { grade = '4.0'; color = '#60a5fa'; }
+  else if (pct >= 80) { grade = '3.5'; color = '#f59e0b'; }
+  else if (pct >= 75) { grade = '3.0'; color = '#f97316'; }
+  else { grade = 'ndst'; color = '#ef4444'; }
+
+  wrap.innerHTML = `
+    <div class="results">
+      <h2>Wynik quizu</h2>
+      <div class="score-circle" style="background:${color}">
+        <div>${pct}%</div>
+        <div style="font-size:.9rem;font-weight:600">${grade}</div>
+      </div>
+      <div class="result-grid">
+        <div class="result-box"><div class="val green">${score}</div><div class="lbl">Poprawnych</div></div>
+        <div class="result-box"><div class="val red">${total - score}</div><div class="lbl">Błędnych</div></div>
+        <div class="result-box"><div class="val blue">${total}</div><div class="lbl">Łącznie</div></div>
+      </div>
+      <button class="btn btn-outline" onclick="showReview()" style="margin-right:12px">Przejrzyj odpowiedzi</button>
+      <button class="btn btn-primary btn-restart" onclick="restart()">Zacznij od nowa</button>
+    </div>`;
+}
+
+// ── Review ─────────────────────────────────────────────────
+function showReview() { mode = 'review'; render(); }
+
+function renderReview(wrap) {
+  const items = shuffled.map((qIdx, pos) => {
+    const q   = questions[qIdx];
+    const r   = answered[pos];
+    if (!r) return '';
+    const cls  = r.isCorrect ? 'r-correct' : 'r-wrong';
+    const icon = r.isCorrect ? '✓' : '✗';
+    const ansLine = r.isCorrect
+      ? `<span class="ok">${icon} ${LETTERS[r.chosen].toUpperCase()}) ${q.opts[r.chosen]}</span>`
+      : `<span class="bad">${icon} Twoja: ${LETTERS[r.chosen].toUpperCase()}) ${q.opts[r.chosen]}</span><br>
+         <span class="ok">✓ Poprawna: ${LETTERS[r.correct_idx].toUpperCase()}) ${q.opts[r.correct_idx]}</span>`;
+    return `<div class="review-item ${cls}">
+      <div class="review-q">${pos+1}. ${q.q}</div>
+      <div class="review-ans">${ansLine}</div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="review-list">
+      <button class="btn btn-outline" style="margin-bottom:14px" onclick="mode='results';render()">← Wróć do wyniku</button>
+      ${items}
+      <button class="btn btn-primary" style="margin-top:8px" onclick="restart()">Zacznij od nowa</button>
+    </div>`;
+}
+
+// ── Restart ────────────────────────────────────────────────
+function restart() {
+  mode = 'quiz';
+  initShuffle();
+  render();
+}
+
+initShuffle();
+render();
+</script>
+</body>
+</html>
