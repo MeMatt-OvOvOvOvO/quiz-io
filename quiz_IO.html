@@ -238,7 +238,8 @@ const N = questions.length;
 // State
 let current  = 0;
 let shuffled = [];
-let answered = {};   // { pos: { chosen, correct_idx, isCorrect } }
+let optOrders = [];  // optOrders[pos] = array of original option indices in display order
+let answered = {};   // { pos: { chosen, correct_idx, isCorrect } }  (indices are original)
 let mode     = 'quiz';
 
 // ── Helpers ────────────────────────────────────────────────
@@ -253,6 +254,7 @@ function fisherYates(arr) {
 
 function initShuffle() {
   shuffled = fisherYates(questions.map((_, i) => i));
+  optOrders = shuffled.map(qIdx => fisherYates(questions[qIdx].opts.map((_, i) => i)));
   answered = {};
   current  = 0;
 }
@@ -317,15 +319,16 @@ function renderQuiz(wrap) {
       </div>
       <div class="q-text">${pos + 1}. ${q.q}</div>
       <div class="options" id="opts">
-        ${q.opts.map((o, i) => {
+        ${optOrders[pos].map((origIdx, displayIdx) => {
+          const o = q.opts[origIdx];
           let cls = 'option' + (isAnswered ? ' locked' : '');
           if (isAnswered) {
-            if (i === prev.chosen && prev.isCorrect)  cls += ' correct';
-            if (i === prev.chosen && !prev.isCorrect) cls += ' wrong';
-            if (i === prev.correct_idx && !prev.isCorrect) cls += ' reveal-correct';
+            if (origIdx === prev.chosen && prev.isCorrect)  cls += ' correct';
+            if (origIdx === prev.chosen && !prev.isCorrect) cls += ' wrong';
+            if (origIdx === prev.correct_idx && !prev.isCorrect) cls += ' reveal-correct';
           }
-          return `<div class="${cls}" onclick="choose(${i})">
-            <div class="option-letter">${LETTERS[i]}</div>
+          return `<div class="${cls}" onclick="choose(${origIdx})">
+            <div class="option-letter">${LETTERS[displayIdx]}</div>
             <div class="option-text">${o}</div>
           </div>`;
         }).join('')}
@@ -334,7 +337,7 @@ function renderQuiz(wrap) {
         ${isAnswered
           ? (prev.isCorrect
               ? '✓ Poprawna odpowiedź!'
-              : `✗ Błąd. Poprawna odpowiedź: ${LETTERS[prev.correct_idx].toUpperCase()}) ${q.opts[prev.correct_idx]}`)
+              : `✗ Błąd. Poprawna odpowiedź: ${LETTERS[optOrders[pos].indexOf(prev.correct_idx)].toUpperCase()}) ${q.opts[prev.correct_idx]}`)
           : ''}
       </div>
       <div class="actions">
@@ -410,10 +413,11 @@ function renderReview(wrap) {
     if (!r) return '';
     const cls  = r.isCorrect ? 'r-correct' : 'r-wrong';
     const icon = r.isCorrect ? '✓' : '✗';
+    const order = optOrders[pos];
     const ansLine = r.isCorrect
-      ? `<span class="ok">${icon} ${LETTERS[r.chosen].toUpperCase()}) ${q.opts[r.chosen]}</span>`
-      : `<span class="bad">${icon} Twoja: ${LETTERS[r.chosen].toUpperCase()}) ${q.opts[r.chosen]}</span><br>
-         <span class="ok">✓ Poprawna: ${LETTERS[r.correct_idx].toUpperCase()}) ${q.opts[r.correct_idx]}</span>`;
+      ? `<span class="ok">${icon} ${LETTERS[order.indexOf(r.chosen)].toUpperCase()}) ${q.opts[r.chosen]}</span>`
+      : `<span class="bad">${icon} Twoja: ${LETTERS[order.indexOf(r.chosen)].toUpperCase()}) ${q.opts[r.chosen]}</span><br>
+         <span class="ok">✓ Poprawna: ${LETTERS[order.indexOf(r.correct_idx)].toUpperCase()}) ${q.opts[r.correct_idx]}</span>`;
     return `<div class="review-item ${cls}">
       <div class="review-q">${pos+1}. ${q.q}</div>
       <div class="review-ans">${ansLine}</div>
